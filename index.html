@@ -494,7 +494,7 @@
                 }
 
                 if (willStopNext && isMovingSoundPlaying) {
-                    const timeBeforeCut = Math.max(0, travelTime - 500);
+                    const timeBeforeCut = Math.max(0, travelTime - 200);
                     await sleep(timeBeforeCut);
                     stopUpSound();
                     isMovingSoundPlaying = false;
