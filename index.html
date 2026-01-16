@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ascenseur Universel V3 (Multi-Etats)</title>
+    <title>Ascenseur Universel V5 (Séquence Porte Ajustée)</title>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
 
     <style>
@@ -46,18 +46,16 @@
             position: relative;
             box-sizing: border-box;
             transition: all 0.3s ease;
-            
+            margin: auto; 
             width: fit-content; 
-            max-width: 98vw;
             max-height: 98vh;
-            
-            overflow-y: auto;
+            overflow-y: auto; 
             overflow-x: hidden;
+            padding-bottom: 30px; 
         }
 
-        .elevator-panel::-webkit-scrollbar { width: 5px; height: 5px; }
-        .elevator-panel::-webkit-scrollbar-thumb { background: var(--brass-dark); border-radius: 3px; }
-        .elevator-panel::-webkit-scrollbar-track { background: transparent; }
+        .elevator-panel::-webkit-scrollbar { width: 4px; }
+        .elevator-panel::-webkit-scrollbar-thumb { background: var(--brass-dark); border-radius: 2px; }
 
         /* --- VIS --- */
         .elevator-panel::before, .elevator-panel::after {
@@ -79,7 +77,7 @@
             padding: 8px;
             border-radius: 4px;
             margin-bottom: 10px;
-            margin-top: 15px; /* Espace pour les vis du haut */
+            margin-top: 15px;
             border: 2px solid var(--brass-light);
             width: 140px; 
             flex-shrink: 0;
@@ -133,110 +131,88 @@
         .icon { width: 24px; height: 24px; fill: currentColor; }
 
 
-        /* ================= LAYOUTS ================= */
-
-        /* --- VERTICAL --- */
-        .vertical-layout .button-grid {
-            display: grid; gap: 10px; padding: 10px;
+        /* --- LAYOUTS --- */
+        .button-grid {
+            display: grid; gap: 8px; padding: 10px;
             background-color: rgba(0,0,0,0.2);
             border-radius: 8px; border: 2px solid var(--brass-dark);
-            margin-bottom: 20px; /* Marge bas pour ne pas coller aux vis */
-            margin-left: auto; margin-right: auto;
+            margin-bottom: 10px; margin-left: auto; margin-right: auto;
         }
         
-        .vertical-layout .control-row {
+        .control-row {
             display: flex; gap: 15px; justify-content: center; align-items: center; padding: 10px;
             border-top: 2px solid var(--brass-dark); width: 100%; box-sizing: border-box;
-            margin-bottom: 10px; /* Espace avant les vis du bas */
+            margin-bottom: 15px; 
         }
 
-        .mode-9 .button-grid { grid-template-columns: repeat(2, 1fr); }
-        .mode-9 .floor-btn, .mode-9 .control-btn { width: 60px; height: 60px; font-size: 2rem; }
-        .mode-30v .button-grid { grid-template-columns: repeat(3, 1fr); }
-        .mode-30v .floor-btn, .mode-30v .control-btn { width: 50px; height: 50px; font-size: 1.5rem; }
+        /* Mode 9 */
+        .mode-9 .button-grid { grid-template-columns: repeat(2, 1fr); gap: 15px; }
+        .mode-9 .floor-btn, .mode-9 .control-btn { width: 70px; height: 70px; font-size: 2.2rem; }
 
+        /* Mode 30 */
+        .mode-30 .button-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+        .mode-30 .floor-btn, .mode-30 .control-btn { width: 50px; height: 50px; font-size: 1.5rem; }
 
-        /* --- HORIZONTAL --- */
-        .horizontal-layout .main-interface {
-            display: flex; flex-direction: row; 
-            width: fit-content; max-width: 100%;
-            background-color: rgba(0,0,0,0.2); border-radius: 8px;
-            border: 2px solid var(--brass-dark); padding: 10px;
-            overflow-x: auto; gap: 15px;
-            
-            /* CORRECTION MARGE : On ajoute de l'espace pour éviter les vis */
-            margin-top: 15px; 
-            margin-bottom: 20px;
+        /* Media Queries Mobile */
+        @media (max-height: 850px) {
+            .mode-30 .floor-btn, .mode-30 .control-btn { width: 42px; height: 42px; font-size: 1.3rem; border-width: 2px; }
+            .mode-30 .button-grid { gap: 4px; padding: 5px; }
+            .elevator-panel { padding: 5px; }
+            .display-screen-container { margin-top: 10px; margin-bottom: 5px; }
+        }
+        @media (max-height: 600px) {
+            .mode-30 .floor-btn, .mode-30 .control-btn { width: 35px; height: 35px; font-size: 1.1rem; }
         }
 
-        .horizontal-layout .controls-section {
-            display: flex; flex-direction: column; gap: 10px;
-            padding-right: 15px; border-right: 2px dashed var(--brass-dark);
-            position: sticky; left: 0; z-index: 10;
-            justify-content: center; align-items: center;
-            background-color: rgba(62, 39, 35, 0.95);
-        }
-
-        .horizontal-layout .floors-section {
-            display: grid; grid-template-rows: repeat(3, 1fr);
-            grid-auto-flow: column; gap: 8px;
-        }
-        
-        .horizontal-layout .floor-btn, .horizontal-layout .control-btn {
-            width: 48px; height: 48px; font-size: 1.4rem;
-        }
-
-        @media (orientation: landscape) and (max-height: 500px) {
-            .mode-9 .floor-btn, .mode-30v .floor-btn { width: 40px; height: 40px; font-size: 1.2rem; }
-            .display-screen-container { margin-bottom: 5px; margin-top: 5px; padding: 4px; }
-            .display-screen { height: 35px; font-size: 1.8rem; }
-            .elevator-panel { padding: 8px; }
-        }
     </style>
 </head>
 <body>
 
-    <div class="elevator-panel mode-9 vertical-layout" id="main-panel">
-        
+    <div class="elevator-panel mode-9" id="main-panel">
         <div class="display-screen-container" id="screen-switch" title="Changer de mode">
             <div class="display-screen" id="floor-display">RDC</div>
         </div>
-
         <div id="dynamic-content"></div>
-
     </div>
 
     <script>
         // --- CONFIGURATION ---
-        let currentMode = 0; // 0=9V, 1=30V, 2=30H
+        let currentMode = 0; // 0 = 9 Etages, 1 = 30 Etages
         const TRAVEL_TIME_PER_FLOOR_MS = 600; 
-        const WAIT_TIME_AT_FLOOR_MS = 1000; 
+        
+        // TEMPS DE LA PORTE
+        const DOOR_SOUND_DURATION_MS = 3200;
+        const DOOR_BUFFER_MS = 600; // Pour le bouton manuel (Total 3800ms)
 
-        // --- GESTION DES ÉTATS INDÉPENDANTS ---
-        // Chaque index du tableau correspond à un mode (0, 1, 2)
-        // Ils ont chacun leur position, file d'attente, etc.
+        // --- ÉTATS ---
         const elevatorsState = [
-            { id: 0, floor: 0, dir: 0, reqs: new Set(), moving: false }, // Mode 9
-            { id: 1, floor: 0, dir: 0, reqs: new Set(), moving: false }, // Mode 30V
-            { id: 2, floor: 0, dir: 0, reqs: new Set(), moving: false }  // Mode 30H
+            { id: 0, floor: 0, dir: 0, reqs: new Set(), moving: false, doorBusy: false }, 
+            { id: 1, floor: 0, dir: 0, reqs: new Set(), moving: false, doorBusy: false }, 
         ];
 
         // --- AUDIO ---
         const sounds = {
             ding: new Audio('Ding.mp3'),
             alarm: new Audio('Alarm.mp3'),
+            door: new Audio('Open.mp3')
         };
 
-        function playDing() {
-            sounds.ding.load(); 
-            sounds.ding.currentTime = 0;
-            let p = sounds.ding.play();
+        // Fonctions Audio
+        function playSound(key) {
+            sounds[key].load();
+            sounds[key].currentTime = 0;
+            let p = sounds[key].play();
             if (p !== undefined) p.catch(e => {}); 
         }
 
         let alarmTimeout;
         function playAlarm() {
             clearTimeout(alarmTimeout);
+            
+            // Allumage du bouton ALARME
+            const btn = document.getElementById('btn-alarm');
+            if(btn) btn.classList.add('lit');
+
             sounds.alarm.load();
             sounds.alarm.currentTime = 0;
             sounds.alarm.loop = true;
@@ -246,10 +222,12 @@
             alarmTimeout = setTimeout(() => {
                 sounds.alarm.pause();
                 sounds.alarm.currentTime = 0;
+                // Extinction du bouton ALARME
+                if(btn) btn.classList.remove('lit');
             }, 3000);
         }
 
-        // --- MOTEUR DE RENDU ---
+        // --- RENDU DOM ---
         const panel = document.getElementById('main-panel');
         const contentDiv = document.getElementById('dynamic-content');
         const displayScreen = document.getElementById('floor-display');
@@ -259,9 +237,8 @@
             contentDiv.innerHTML = '';
             panel.className = 'elevator-panel'; 
 
-            // 1. MODE 9 (Vertical)
             if (currentMode === 0) {
-                panel.classList.add('vertical-layout', 'mode-9');
+                panel.classList.add('mode-9');
                 const grid = document.createElement('div');
                 grid.className = 'button-grid';
                 const layout = [[8, 9], [6, 7], [4, 5], [2, 3], [0, 1], [-2, -1]];
@@ -269,9 +246,8 @@
                 contentDiv.appendChild(grid);
                 contentDiv.appendChild(createControlRow());
             }
-            // 2. MODE 30 (Vertical)
             else if (currentMode === 1) {
-                panel.classList.add('vertical-layout', 'mode-30v');
+                panel.classList.add('mode-30');
                 const grid = document.createElement('div');
                 grid.className = 'button-grid';
                 const min = -2, max = 30;
@@ -285,33 +261,12 @@
                 contentDiv.appendChild(grid);
                 contentDiv.appendChild(createControlRow());
             }
-            // 3. MODE 30 (Horizontal)
-            else if (currentMode === 2) {
-                panel.classList.add('horizontal-layout');
-                const main = document.createElement('div');
-                main.className = 'main-interface';
-                
-                const controls = document.createElement('div');
-                controls.className = 'controls-section';
-                controls.appendChild(createAlarmBtn());
-                controls.appendChild(createDoorBtn());
-
-                const floors = document.createElement('div');
-                floors.className = 'floors-section';
-                for(let i = -2; i <= 30; i++) floors.appendChild(createFloorBtn(i));
-
-                main.appendChild(controls);
-                main.appendChild(floors);
-                contentDiv.appendChild(main);
-            }
             
-            // Met à jour l'affichage avec l'état sauvegardé de CE mode
             const currentState = elevatorsState[currentMode];
             updateDisplay(currentState.floor);
             updateLights();
         }
 
-        // --- CREATION DOM ---
         function createFloorBtn(num) {
             const btn = document.createElement('button');
             btn.className = 'floor-btn';
@@ -332,32 +287,50 @@
         function createAlarmBtn() {
             const btn = document.createElement('button');
             btn.className = 'control-btn alarm';
+            btn.id = 'btn-alarm'; // ID pour ciblage
             btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>';
             btn.addEventListener('click', playAlarm);
             return btn;
         }
 
+        // BOUTON PORTE (MANUEL)
         function createDoorBtn() {
             const btn = document.createElement('button');
             btn.className = 'control-btn door';
+            btn.id = 'btn-door'; 
             btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><path d="M5 10l7-5v14l-7-5V10z m14 0l-7-5v14l7-5V10z M11 12h2"/><path d="M8 5v14l-5-5V10z M16 5v14l5-5V10z"/></svg>';
-            btn.addEventListener('click', () => {
+            
+            btn.addEventListener('click', async () => {
+                const state = elevatorsState[currentMode];
+                
+                // Si l'ascenseur bouge OU si la porte est déjà en cycle, on ignore
+                if(state.moving || state.doorBusy) return;
+
+                // Sinon on lance le cycle manuel
+                state.doorBusy = true;
                 btn.classList.add('lit');
-                // On joue le son seulement si l'ascenseur ACTUEL est à l'arrêt
-                if(!elevatorsState[currentMode].moving) playDing();
-                setTimeout(() => btn.classList.remove('lit'), 400);
+                
+                playSound('door'); // Son ouverture
+                
+                // Ici on garde les 3800ms demandés pour le manuel
+                await sleep(DOOR_SOUND_DURATION_MS); // 3200ms
+                await sleep(DOOR_BUFFER_MS);         // 600ms
+                
+                btn.classList.remove('lit');
+                state.doorBusy = false;
+
+                // S'il y avait des requêtes en attente, on repart
+                if(state.reqs.size > 0 && !state.moving) startElevatorLoop(state.id);
             });
             return btn;
         }
 
-        // --- LOGIQUE ASCENSEUR (MULTI-INSTANCES) ---
-
+        // --- LOGIQUE METIER ---
         function updateDisplay(floor) {
             displayScreen.innerText = floor === 0 ? "RDC" : floor;
         }
 
         function toggleFloor(floorNum) {
-            // On récupère l'état de l'ascenseur actif
             const state = elevatorsState[currentMode];
             const btn = document.getElementById(`btn-${floorNum}`);
             
@@ -365,19 +338,13 @@
                 state.reqs.delete(floorNum);
                 if(btn) btn.classList.remove('lit');
             } else {
-                if (floorNum === state.floor && !state.moving) {
-                    playDing();
-                    return;
-                }
+                if (floorNum === state.floor && !state.moving) return;
                 state.reqs.add(floorNum);
                 if(btn) btn.classList.add('lit');
-                
-                // On lance la boucle pour CET ascenseur spécifique
                 if (!state.moving) startElevatorLoop(state.id);
             }
         }
 
-        // Met à jour les lumières quand on revient sur un mode
         function updateLights() {
             const state = elevatorsState[currentMode];
             state.reqs.forEach(num => {
@@ -388,11 +355,10 @@
 
         function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-        // La boucle prend maintenant un ID pour savoir quel ascenseur elle pilote
         async function startElevatorLoop(elevatorId) {
             const state = elevatorsState[elevatorId];
             
-            if (state.moving) return;
+            if (state.moving || state.doorBusy) return;
             state.moving = true;
 
             while (state.reqs.size > 0) {
@@ -401,7 +367,6 @@
                     const hasAbove = Array.from(state.reqs).some(f => f > state.floor);
                     state.dir = hasAbove ? 1 : -1;
                 }
-
                 if (state.dir === 1) {
                     const above = Array.from(state.reqs).filter(f => f > state.floor);
                     if (above.length === 0) {
@@ -418,42 +383,61 @@
 
                 if (state.dir === 0 && state.reqs.size === 0) break;
 
-                await sleep(TRAVEL_TIME_PER_FLOOR_MS);
-
                 // Mouvement
+                await sleep(TRAVEL_TIME_PER_FLOOR_MS);
                 if (state.dir === 1) state.floor++;
                 else state.floor--;
 
-                // Mise à jour graphique SEULEMENT si c'est l'ascenseur visible
-                if (currentMode === elevatorId) {
-                    updateDisplay(state.floor);
-                }
+                if (currentMode === elevatorId) updateDisplay(state.floor);
 
-                // Arrivée ?
+                // Arrivée
                 if (state.reqs.has(state.floor)) {
-                    // Si c'est l'ascenseur visible, on joue le son et on éteint le bouton
+                    state.reqs.delete(state.floor);
+                    
+                    // SÉQUENCE D'ARRIVÉE AUTOMATIQUE
                     if (currentMode === elevatorId) {
-                        playDing();
+                        // 1. Ding
+                        playSound('ding');
                         const btn = document.getElementById(`btn-${state.floor}`);
                         if(btn) btn.classList.remove('lit');
                     }
-                    state.reqs.delete(state.floor);
-                    await sleep(WAIT_TIME_AT_FLOOR_MS);
+
+                    // 2. Pause 500ms
+                    await sleep(500);
+
+                    // 3. Début Ouverture Porte
+                    state.doorBusy = true; // Bloque le redémarrage
+                    if (currentMode === elevatorId) {
+                         playSound('door'); // Open.mp3
+                         // Allume le bouton porte
+                         const doorBtn = document.getElementById('btn-door');
+                         if(doorBtn) doorBtn.classList.add('lit');
+                    }
+
+                    // 4. Attente durée du son (3200ms)
+                    await sleep(DOOR_SOUND_DURATION_MS);
+                    
+                    // 5. Attente Buffer ÉTENDU pour le redémarrage (1100ms)
+                    // 3200 + 1100 = 4300ms Total
+                    await sleep(1100); 
+
+                    // 6. Fin de séquence
+                    state.doorBusy = false;
+                    if (currentMode === elevatorId) {
+                         const doorBtn = document.getElementById('btn-door');
+                         if(doorBtn) doorBtn.classList.remove('lit');
+                    }
                 }
             }
-
             state.moving = false;
             state.dir = 0;
         }
 
-        // --- SWITCH MODE ---
         screenSwitch.addEventListener('click', () => {
-            currentMode = (currentMode + 1) % 3;
+            currentMode = (currentMode + 1) % 2;
             renderInterface();
-            playDing();
         });
 
-        // Init
         renderInterface();
 
     </script>
