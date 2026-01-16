@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ascenseur Universel V16 (Son Mouvement)</title>
+    <title>Ascenseur Universel V18</title>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
 
     <style>
@@ -48,8 +48,8 @@
             transition: all 0.3s ease;
             margin: auto; 
             width: fit-content; 
-            max-height: 98vh;
-            overflow-y: auto; 
+            /* On laisse la hauteur automatique sur PC */
+            overflow-y: visible;
             overflow-x: hidden;
             padding-bottom: 30px; 
         }
@@ -153,15 +153,31 @@
         .mode-30 .button-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
         .mode-30 .floor-btn, .mode-30 .control-btn { width: 50px; height: 50px; font-size: 1.5rem; }
 
-        /* Media Queries Mobile */
-        @media (max-height: 850px) {
-            .mode-30 .floor-btn, .mode-30 .control-btn { width: 42px; height: 42px; font-size: 1.3rem; border-width: 2px; }
-            .mode-30 .button-grid { gap: 4px; padding: 5px; }
-            .elevator-panel { padding: 5px; }
-            .display-screen-container { margin-top: 10px; margin-bottom: 5px; }
+        /* --- RESPONSIVE MOBILE --- */
+        /* On ne touche pas au PC, on cible uniquement les écrans moins hauts */
+        @media (max-height: 900px) {
+            
+            /* Ajustement Mode 9 pour qu'il soit bien centré */
+            .mode-9 {
+                /* Pas de modification de taille nécessaire, juste centrage assuré par body */
+            }
+
+            /* Ajustement Mode 30 : Réduction globale proportionnelle */
+            .mode-30 {
+                transform: scale(0.85); /* Réduit tout le panneau à 85% */
+                /* On compense les marges créées par le scale */
+                margin-top: -5vh; 
+                margin-bottom: -5vh;
+            }
         }
-        @media (max-height: 600px) {
-            .mode-30 .floor-btn, .mode-30 .control-btn { width: 35px; height: 35px; font-size: 1.1rem; }
+
+        /* Pour les très petits écrans */
+        @media (max-height: 700px) {
+            .mode-30 {
+                transform: scale(0.75); /* Réduit encore plus */
+                margin-top: -10vh;
+                margin-bottom: -10vh;
+            }
         }
 
     </style>
@@ -182,7 +198,7 @@
         // TEMPS DE LA PORTE
         const TIME_OPEN = 3200;      // Durée Open.mp3
         const TIME_WAIT = 2000;      // Pause porte ouverte
-        const TIME_CLOSE = 3500;     // Durée Closing.mp3
+        const TIME_CLOSE = 4500;     // AUGMENTÉ à 4500
         const TIME_INTERRUPT = 1500; // Pause après interruption bouton
 
         // Ratio : (Temps Ouverture / Temps Fermeture)
@@ -196,12 +212,12 @@
 
         // --- AUDIO ---
         const sounds = {
-            ding: new Audio('Ding.mp3'),
-            alarm: new Audio('Alarm.mp3'),
-            door_open: new Audio('Open.mp3'),
-            door_close: new Audio('Closing.mp3'),
-            music: new Audio('Music.mp3'),
-            up: new Audio('Up.mp3') // Nouveau son de mouvement
+            ding: new Audio('ding.mp3'),
+            alarm: new Audio('alarm.mp3'),
+            door_open: new Audio('open.mp3'),
+            door_close: new Audio('closing.mp3'),
+            music: new Audio('music.mp3'),
+            up: new Audio('up.mp3')
         };
 
         // Configuration Musique de Fond
@@ -212,7 +228,7 @@
             setTimeout(() => {
                 sounds.music.currentTime = 0;
                 sounds.music.play().catch(e => {});
-            }, 2000); 
+            }, 1000); // RÉDUIT à 1000ms
         });
 
         function startBackgroundMusic() {
@@ -243,21 +259,19 @@
         }
 
         // --- GESTION DU SON UP (MOUVEMENT) ---
-        // Joue le son avec fondu
         function playUpSound() {
             sounds.up.currentTime = 0;
-            sounds.up.volume = 0; // Départ muet pour fondu
-            sounds.up.loop = true; // Boucle si le trajet est long
+            sounds.up.volume = 0; 
+            sounds.up.loop = true; 
             
             let p = sounds.up.play();
             if (p !== undefined) {
                 p.then(() => {
-                    // Fondu ENTRÉE (Fade In) sur 300ms
+                    // Fondu ENTRÉE (Fade In)
                     let vol = 0;
                     let fadeIn = setInterval(() => {
                         if(vol < 1) {
-                            vol += 0.1;
-                            // Protection contre erreur flottante > 1
+                            vol += 0.2; // AUGMENTÉ (Monte plus vite vers 100%)
                             sounds.up.volume = Math.min(1, vol);
                         } else {
                             clearInterval(fadeIn);
@@ -267,13 +281,11 @@
             }
         }
 
-        // Arrête le son avec fondu
         function stopUpSound() {
-            // Fondu SORTIE (Fade Out) sur 300ms
             let vol = sounds.up.volume;
             let fadeOut = setInterval(() => {
                 if(vol > 0) {
-                    vol -= 0.1;
+                    vol -= 0.2;
                     sounds.up.volume = Math.max(0, vol);
                 } else {
                     clearInterval(fadeOut);
@@ -283,7 +295,6 @@
                 }
             }, 30);
         }
-
 
         // --- LOGIQUE ALARME ---
         let alarmTimeout;
@@ -317,6 +328,9 @@
 
             if (currentMode === 0) {
                 panel.classList.add('mode-9');
+                // Nettoyage classe précédente pour éviter conflits
+                panel.classList.remove('mode-30');
+                
                 const grid = document.createElement('div');
                 grid.className = 'button-grid';
                 const layout = [[8, 9], [6, 7], [4, 5], [2, 3], [0, 1], [-2, -1]];
@@ -326,6 +340,8 @@
             }
             else if (currentMode === 1) {
                 panel.classList.add('mode-30');
+                panel.classList.remove('mode-9');
+                
                 const grid = document.createElement('div');
                 grid.className = 'button-grid';
                 const min = -2, max = 30;
@@ -440,13 +456,10 @@
             if (s.moving) return;
             s.moving = true;
 
-            // --- PLANIFICATION DU TRAJET ---
-            // On calcule ici si le trajet est assez long pour jouer le son Up.mp3
-            // Condition : TempsTotal > 1000ms (500ms délai départ + 500ms délai arrivée)
             let isMovingSoundPlaying = false;
             
             while (s.reqs.size > 0) {
-                // 1. DIRECTION
+                // DIRECTION
                 if (s.dir === 0) {
                     const hasAbove = Array.from(s.reqs).some(f => f > s.floor);
                     s.dir = hasAbove ? 1 : -1;
@@ -467,25 +480,13 @@
 
                 if (s.dir === 0 && s.reqs.size === 0) break;
 
-                // --- GESTION DU SON UP (DÉPART) ---
-                // Si on démarre et qu'il n'y a pas d'arrêt prévu tout de suite
-                // Pour simplifier, on regarde si on va s'arrêter au prochain étage
+                // GESTION SON UP
                 const nextFloor = s.floor + s.dir;
                 const willStopNext = s.reqs.has(nextFloor);
-                const travelTime = (currentMode === 0) ? 1200 : 600;
+                const travelTime = (currentMode === 0) ? 1200 : 1000;
 
-                // Si on ne joue pas déjà le son et qu'on a le temps
-                // (Si on s'arrête au prochain, temps total = travelTime)
-                // (Si travelTime > 1000, on peut jouer même pour 1 étage)
                 if (!isMovingSoundPlaying && currentMode === elevatorId) {
-                    // On lance le son après 500ms si le trajet le permet
-                    // Cas simple : On lance le son, et on l'arrêtera 500ms avant l'arrivée prévue
                     if (travelTime > 500) { 
-                        // Petite attente de 500ms avant de lancer le son
-                        // Note : Cela se fait en parallèle du mouvement visuel pour ne pas bloquer
-                        // Mais ici dans une boucle séquentielle simple, on doit ruser un peu
-                        // Pour cette version, on lance le son immédiatement avec le fondu qui prendra un peu de temps
-                        // ou on utilise un setTimeout non bloquant
                         setTimeout(() => {
                             if(s.moving && !isMovingSoundPlaying && currentMode === elevatorId) {
                                 playUpSound();
@@ -495,17 +496,14 @@
                     }
                 }
 
-                // 2. MOUVEMENT
-                // Si on doit s'arrêter à cet étage, on coupe le son AVANT d'arriver
+                // MOUVEMENT
                 if (willStopNext && isMovingSoundPlaying) {
-                    // On doit couper 500ms avant la fin du travelTime
                     const timeBeforeCut = Math.max(0, travelTime - 500);
                     await sleep(timeBeforeCut);
                     stopUpSound();
                     isMovingSoundPlaying = false;
-                    await sleep(500); // Reste du temps
+                    await sleep(500); 
                 } else {
-                    // Sinon on attend tout le temps
                     await sleep(travelTime);
                 }
                 
@@ -514,9 +512,8 @@
 
                 if (currentMode === elevatorId) updateDisplay(s.floor);
 
-                // 3. ARRIVÉE
+                // ARRIVÉE
                 if (s.reqs.has(s.floor)) {
-                    // Sécurité : on coupe le son si jamais il tournait encore
                     if(isMovingSoundPlaying) { stopUpSound(); isMovingSoundPlaying = false; }
 
                     s.reqs.delete(s.floor);
@@ -594,7 +591,6 @@
                     s.phase = 'IDLE';
                 }
             }
-            // Fin de boucle
             if(isMovingSoundPlaying) { stopUpSound(); isMovingSoundPlaying = false; }
             s.moving = false;
             s.dir = 0;
