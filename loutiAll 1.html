@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ascenseur Universel V3 (Multi-Etats)</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --brass-dark: #5c4526;
+            --brass-light: #a88852;
+            --wood: #3e2723;
+            --screen-bg: #1a120b;
+            --screen-lit: #ffaa00;
+            --button-off: #3a2f2a;
+            --button-lit-bg: #e6c67e;
+            --button-lit-glow: #ffcc00;
+            --pixel-size: 4px;
+        }
+
+        body {
+            background-color: #121212;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+            margin: 0;
+            font-family: 'VT323', monospace;
+            image-rendering: pixelated;
+            user-select: none;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* --- CONTENEUR PRINCIPAL --- */
+        .elevator-panel {
+            background-color: var(--wood);
+            border: calc(var(--pixel-size) * 3) solid var(--brass-dark);
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5), 0 0 10px rgba(0,0,0,0.5);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            box-sizing: border-box;
+            transition: all 0.3s ease;
+            
+            width: fit-content; 
+            max-width: 98vw;
+            max-height: 98vh;
+            
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .elevator-panel::-webkit-scrollbar { width: 5px; height: 5px; }
+        .elevator-panel::-webkit-scrollbar-thumb { background: var(--brass-dark); border-radius: 3px; }
+        .elevator-panel::-webkit-scrollbar-track { background: transparent; }
+
+        /* --- VIS --- */
+        .elevator-panel::before, .elevator-panel::after {
+            content: ''; position: absolute; left: 6px; right: 6px; height: 12px;
+            --vis-pattern: radial-gradient(circle, var(--brass-light) 25%, var(--wood) 25%, var(--wood) 65%, var(--brass-dark) 65%);
+            background-image: var(--vis-pattern), var(--vis-pattern);
+            background-repeat: no-repeat;
+            background-size: 12px 12px;
+            background-position: left center, right center;
+            z-index: 5;
+            pointer-events: none;
+        }
+        .elevator-panel::before { top: 6px; }
+        .elevator-panel::after { bottom: 6px; }
+
+        /* --- ÉCRAN --- */
+        .display-screen-container {
+            background-color: var(--brass-dark);
+            padding: 8px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            margin-top: 15px; /* Espace pour les vis du haut */
+            border: 2px solid var(--brass-light);
+            width: 140px; 
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .display-screen-container:active { transform: scale(0.95); }
+
+        .display-screen {
+            background-color: var(--screen-bg);
+            color: var(--screen-lit);
+            font-size: 2.5rem;
+            width: 100%; height: 50px;
+            display: flex; justify-content: center; align-items: center;
+            border: 2px inset rgba(255, 170, 0, 0.2);
+            text-shadow: 0 0 5px var(--screen-lit);
+            position: relative; overflow: hidden;
+        }
+        .display-screen::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: repeating-linear-gradient(0deg, rgba(0,0,0,0.1) 0px, rgba(0,0,0,0.1) 2px, transparent 2px, transparent 4px);
+            pointer-events: none;
+        }
+
+        /* --- BOUTONS --- */
+        .floor-btn, .control-btn {
+            background-color: var(--button-off);
+            border: 3px solid var(--brass-light);
+            color: var(--brass-light);
+            font-family: 'VT323', monospace;
+            font-size: 1.6rem;
+            cursor: pointer;
+            position: relative;
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.5), 2px 2px 5px rgba(0,0,0,0.3);
+            transition: all 0.1s ease;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            flex-shrink: 0;
+        }
+        .floor-btn:active, .control-btn:active { transform: scale(0.95); box-shadow: inset 0 0 10px rgba(0,0,0,0.8); }
+        .floor-btn.lit, .control-btn.lit {
+            background-color: var(--button-lit-bg);
+            color: #4a3822;
+            border-color: var(--button-lit-glow);
+            box-shadow: inset 0 0 10px var(--button-lit-glow), 0 0 15px var(--button-lit-glow);
+            text-shadow: 0 0 2px rgba(255, 255, 255, 0.5);
+        }
+        .control-btn.alarm:active { background-color: #ff4444; color: white; border-color: #ff0000; box-shadow: 0 0 15px #ff0000; }
+        .icon { width: 24px; height: 24px; fill: currentColor; }
+
+
+        /* ================= LAYOUTS ================= */
+
+        /* --- VERTICAL --- */
+        .vertical-layout .button-grid {
+            display: grid; gap: 10px; padding: 10px;
+            background-color: rgba(0,0,0,0.2);
+            border-radius: 8px; border: 2px solid var(--brass-dark);
+            margin-bottom: 20px; /* Marge bas pour ne pas coller aux vis */
+            margin-left: auto; margin-right: auto;
+        }
+        
+        .vertical-layout .control-row {
+            display: flex; gap: 15px; justify-content: center; align-items: center; padding: 10px;
+            border-top: 2px solid var(--brass-dark); width: 100%; box-sizing: border-box;
+            margin-bottom: 10px; /* Espace avant les vis du bas */
+        }
+
+        .mode-9 .button-grid { grid-template-columns: repeat(2, 1fr); }
+        .mode-9 .floor-btn, .mode-9 .control-btn { width: 60px; height: 60px; font-size: 2rem; }
+        .mode-30v .button-grid { grid-template-columns: repeat(3, 1fr); }
+        .mode-30v .floor-btn, .mode-30v .control-btn { width: 50px; height: 50px; font-size: 1.5rem; }
+
+
+        /* --- HORIZONTAL --- */
+        .horizontal-layout .main-interface {
+            display: flex; flex-direction: row; 
+            width: fit-content; max-width: 100%;
+            background-color: rgba(0,0,0,0.2); border-radius: 8px;
+            border: 2px solid var(--brass-dark); padding: 10px;
+            overflow-x: auto; gap: 15px;
+            
+            /* CORRECTION MARGE : On ajoute de l'espace pour éviter les vis */
+            margin-top: 15px; 
+            margin-bottom: 20px;
+        }
+
+        .horizontal-layout .controls-section {
+            display: flex; flex-direction: column; gap: 10px;
+            padding-right: 15px; border-right: 2px dashed var(--brass-dark);
+            position: sticky; left: 0; z-index: 10;
+            justify-content: center; align-items: center;
+            background-color: rgba(62, 39, 35, 0.95);
+        }
+
+        .horizontal-layout .floors-section {
+            display: grid; grid-template-rows: repeat(3, 1fr);
+            grid-auto-flow: column; gap: 8px;
+        }
+        
+        .horizontal-layout .floor-btn, .horizontal-layout .control-btn {
+            width: 48px; height: 48px; font-size: 1.4rem;
+        }
+
+        @media (orientation: landscape) and (max-height: 500px) {
+            .mode-9 .floor-btn, .mode-30v .floor-btn { width: 40px; height: 40px; font-size: 1.2rem; }
+            .display-screen-container { margin-bottom: 5px; margin-top: 5px; padding: 4px; }
+            .display-screen { height: 35px; font-size: 1.8rem; }
+            .elevator-panel { padding: 8px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="elevator-panel mode-9 vertical-layout" id="main-panel">
+        
+        <div class="display-screen-container" id="screen-switch" title="Changer de mode">
+            <div class="display-screen" id="floor-display">RDC</div>
+        </div>
+
+        <div id="dynamic-content"></div>
+
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        let currentMode = 0; // 0=9V, 1=30V, 2=30H
+        const TRAVEL_TIME_PER_FLOOR_MS = 600; 
+        const WAIT_TIME_AT_FLOOR_MS = 1000; 
+
+        // --- GESTION DES ÉTATS INDÉPENDANTS ---
+        // Chaque index du tableau correspond à un mode (0, 1, 2)
+        // Ils ont chacun leur position, file d'attente, etc.
+        const elevatorsState = [
+            { id: 0, floor: 0, dir: 0, reqs: new Set(), moving: false }, // Mode 9
+            { id: 1, floor: 0, dir: 0, reqs: new Set(), moving: false }, // Mode 30V
+            { id: 2, floor: 0, dir: 0, reqs: new Set(), moving: false }  // Mode 30H
+        ];
+
+        // --- AUDIO ---
+        const sounds = {
+            ding: new Audio('Ding.mp3'),
+            alarm: new Audio('Alarm.mp3'),
+        };
+
+        function playDing() {
+            sounds.ding.load(); 
+            sounds.ding.currentTime = 0;
+            let p = sounds.ding.play();
+            if (p !== undefined) p.catch(e => {}); 
+        }
+
+        let alarmTimeout;
+        function playAlarm() {
+            clearTimeout(alarmTimeout);
+            sounds.alarm.load();
+            sounds.alarm.currentTime = 0;
+            sounds.alarm.loop = true;
+            let p = sounds.alarm.play();
+            if (p !== undefined) p.catch(e => {});
+
+            alarmTimeout = setTimeout(() => {
+                sounds.alarm.pause();
+                sounds.alarm.currentTime = 0;
+            }, 3000);
+        }
+
+        // --- MOTEUR DE RENDU ---
+        const panel = document.getElementById('main-panel');
+        const contentDiv = document.getElementById('dynamic-content');
+        const displayScreen = document.getElementById('floor-display');
+        const screenSwitch = document.getElementById('screen-switch');
+
+        function renderInterface() {
+            contentDiv.innerHTML = '';
+            panel.className = 'elevator-panel'; 
+
+            // 1. MODE 9 (Vertical)
+            if (currentMode === 0) {
+                panel.classList.add('vertical-layout', 'mode-9');
+                const grid = document.createElement('div');
+                grid.className = 'button-grid';
+                const layout = [[8, 9], [6, 7], [4, 5], [2, 3], [0, 1], [-2, -1]];
+                layout.forEach(row => row.forEach(num => grid.appendChild(createFloorBtn(num))));
+                contentDiv.appendChild(grid);
+                contentDiv.appendChild(createControlRow());
+            }
+            // 2. MODE 30 (Vertical)
+            else if (currentMode === 1) {
+                panel.classList.add('vertical-layout', 'mode-30v');
+                const grid = document.createElement('div');
+                grid.className = 'button-grid';
+                const min = -2, max = 30;
+                const rows = Math.ceil((max - min + 1) / 3);
+                for(let r = rows - 1; r >= 0; r--) {
+                    for(let c = 0; c < 3; c++) {
+                        const val = min + (r * 3) + c;
+                        if(val <= max) grid.appendChild(createFloorBtn(val));
+                    }
+                }
+                contentDiv.appendChild(grid);
+                contentDiv.appendChild(createControlRow());
+            }
+            // 3. MODE 30 (Horizontal)
+            else if (currentMode === 2) {
+                panel.classList.add('horizontal-layout');
+                const main = document.createElement('div');
+                main.className = 'main-interface';
+                
+                const controls = document.createElement('div');
+                controls.className = 'controls-section';
+                controls.appendChild(createAlarmBtn());
+                controls.appendChild(createDoorBtn());
+
+                const floors = document.createElement('div');
+                floors.className = 'floors-section';
+                for(let i = -2; i <= 30; i++) floors.appendChild(createFloorBtn(i));
+
+                main.appendChild(controls);
+                main.appendChild(floors);
+                contentDiv.appendChild(main);
+            }
+            
+            // Met à jour l'affichage avec l'état sauvegardé de CE mode
+            const currentState = elevatorsState[currentMode];
+            updateDisplay(currentState.floor);
+            updateLights();
+        }
+
+        // --- CREATION DOM ---
+        function createFloorBtn(num) {
+            const btn = document.createElement('button');
+            btn.className = 'floor-btn';
+            btn.innerText = num;
+            btn.id = `btn-${num}`;
+            btn.onclick = () => toggleFloor(num);
+            return btn;
+        }
+
+        function createControlRow() {
+            const row = document.createElement('div');
+            row.className = 'control-row';
+            row.appendChild(createAlarmBtn());
+            row.appendChild(createDoorBtn());
+            return row;
+        }
+
+        function createAlarmBtn() {
+            const btn = document.createElement('button');
+            btn.className = 'control-btn alarm';
+            btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>';
+            btn.addEventListener('click', playAlarm);
+            return btn;
+        }
+
+        function createDoorBtn() {
+            const btn = document.createElement('button');
+            btn.className = 'control-btn door';
+            btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><path d="M5 10l7-5v14l-7-5V10z m14 0l-7-5v14l7-5V10z M11 12h2"/><path d="M8 5v14l-5-5V10z M16 5v14l5-5V10z"/></svg>';
+            btn.addEventListener('click', () => {
+                btn.classList.add('lit');
+                // On joue le son seulement si l'ascenseur ACTUEL est à l'arrêt
+                if(!elevatorsState[currentMode].moving) playDing();
+                setTimeout(() => btn.classList.remove('lit'), 400);
+            });
+            return btn;
+        }
+
+        // --- LOGIQUE ASCENSEUR (MULTI-INSTANCES) ---
+
+        function updateDisplay(floor) {
+            displayScreen.innerText = floor === 0 ? "RDC" : floor;
+        }
+
+        function toggleFloor(floorNum) {
+            // On récupère l'état de l'ascenseur actif
+            const state = elevatorsState[currentMode];
+            const btn = document.getElementById(`btn-${floorNum}`);
+            
+            if (state.reqs.has(floorNum)) {
+                state.reqs.delete(floorNum);
+                if(btn) btn.classList.remove('lit');
+            } else {
+                if (floorNum === state.floor && !state.moving) {
+                    playDing();
+                    return;
+                }
+                state.reqs.add(floorNum);
+                if(btn) btn.classList.add('lit');
+                
+                // On lance la boucle pour CET ascenseur spécifique
+                if (!state.moving) startElevatorLoop(state.id);
+            }
+        }
+
+        // Met à jour les lumières quand on revient sur un mode
+        function updateLights() {
+            const state = elevatorsState[currentMode];
+            state.reqs.forEach(num => {
+                const btn = document.getElementById(`btn-${num}`);
+                if(btn) btn.classList.add('lit');
+            });
+        }
+
+        function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+        // La boucle prend maintenant un ID pour savoir quel ascenseur elle pilote
+        async function startElevatorLoop(elevatorId) {
+            const state = elevatorsState[elevatorId];
+            
+            if (state.moving) return;
+            state.moving = true;
+
+            while (state.reqs.size > 0) {
+                // Logique Direction
+                if (state.dir === 0) {
+                    const hasAbove = Array.from(state.reqs).some(f => f > state.floor);
+                    state.dir = hasAbove ? 1 : -1;
+                }
+
+                if (state.dir === 1) {
+                    const above = Array.from(state.reqs).filter(f => f > state.floor);
+                    if (above.length === 0) {
+                        const below = Array.from(state.reqs).filter(f => f < state.floor);
+                        state.dir = below.length > 0 ? -1 : 0;
+                    }
+                } else if (state.dir === -1) {
+                    const below = Array.from(state.reqs).filter(f => f < state.floor);
+                    if (below.length === 0) {
+                        const above = Array.from(state.reqs).filter(f => f > state.floor);
+                        state.dir = above.length > 0 ? 1 : 0;
+                    }
+                }
+
+                if (state.dir === 0 && state.reqs.size === 0) break;
+
+                await sleep(TRAVEL_TIME_PER_FLOOR_MS);
+
+                // Mouvement
+                if (state.dir === 1) state.floor++;
+                else state.floor--;
+
+                // Mise à jour graphique SEULEMENT si c'est l'ascenseur visible
+                if (currentMode === elevatorId) {
+                    updateDisplay(state.floor);
+                }
+
+                // Arrivée ?
+                if (state.reqs.has(state.floor)) {
+                    // Si c'est l'ascenseur visible, on joue le son et on éteint le bouton
+                    if (currentMode === elevatorId) {
+                        playDing();
+                        const btn = document.getElementById(`btn-${state.floor}`);
+                        if(btn) btn.classList.remove('lit');
+                    }
+                    state.reqs.delete(state.floor);
+                    await sleep(WAIT_TIME_AT_FLOOR_MS);
+                }
+            }
+
+            state.moving = false;
+            state.dir = 0;
+        }
+
+        // --- SWITCH MODE ---
+        screenSwitch.addEventListener('click', () => {
+            currentMode = (currentMode + 1) % 3;
+            renderInterface();
+            playDing();
+        });
+
+        // Init
+        renderInterface();
+
+    </script>
+</body>
+</html>
