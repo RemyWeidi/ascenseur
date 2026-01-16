@@ -23,11 +23,11 @@
             background-color: #121212;
             display: flex;
             justify-content: center;
-            align-items: center;
+            /* Sur PC, on centre verticalement. Sur mobile, on changera ça (voir media query plus bas) */
+            align-items: center; 
             height: 100vh;
             width: 100vw;
             margin: 0;
-            padding: 0; /* Suppression padding pour centrage pur */
             font-family: 'VT323', monospace;
             image-rendering: pixelated;
             user-select: none;
@@ -49,9 +49,8 @@
             transition: all 0.3s ease;
             margin: auto; 
             width: fit-content; 
-            
-            /* Ajustement pour éviter le décentrage */
-            max-height: 98vh; 
+            /* Permet le scroll interne si besoin, mais on essaie de l'éviter */
+            max-height: 100vh; 
             overflow-y: auto; 
             overflow-x: hidden;
             padding-bottom: 30px; 
@@ -148,41 +147,54 @@
             margin-bottom: 15px; 
         }
 
-        /* Mode 9 */
+        /* Mode 9 (PC défaut) */
         .mode-9 .button-grid { grid-template-columns: repeat(2, 1fr); gap: 15px; }
         .mode-9 .floor-btn, .mode-9 .control-btn { width: 70px; height: 70px; font-size: 2.2rem; }
 
-        /* Mode 30 */
+        /* Mode 30 (PC défaut) */
         .mode-30 .button-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
         .mode-30 .floor-btn, .mode-30 .control-btn { width: 50px; height: 50px; font-size: 1.5rem; }
 
-        /* --- MOBILE RESPONSIVE --- */
+        /* --- MOBILE RESPONSIVE (CUSTOMISATION PRÉCISE) --- */
         @media (max-height: 900px) {
             
-            /* Mode 9 : Pas de changement de taille, juste centrage assuré par body */
-            
-            /* Mode 30 : Agrandissement de % */
-            .mode-30 {
-                transform: scale(0.85); /* Agrandissement */
-                
-                /* Marges pour compenser le scale et centrer */
-                margin-top: 5vh; 
-                margin-bottom: 5vh;
+            body {
+                /* 1. On annule le centrage automatique vertical */
+                align-items: flex-start; 
+                /* 2. On permet le scroll sur le corps de page si ça dépasse */
+                overflow-y: auto; 
             }
-            
-            /* Ajustement boutons pour mobile si nécessaire */
-            .mode-30 .floor-btn, .mode-30 .control-btn { 
-                width: 48px; height: 48px; font-size: 1.4rem; 
-            }
-        }
 
-        /* Très petits écrans : On réduit un peu pour que ça rentre quand même */
-        @media (max-height: 700px) {
-            .mode-30 {
-                transform: scale(0.95); /* Légère réduction si l'écran est vraiment petit */
-                margin-top: 0;
-                margin-bottom: 0;
+            .elevator-panel {
+                /* On retire la hauteur max auto pour laisser le contenu respirer */
+                max-height: none; 
             }
+
+            /* --- RÉGLAGE MANUEL MODE 9 --- */
+            .mode-9 {
+                /* Marge pour descendre le panneau 9 étages */
+                margin-top: 15vh; /* Descend de 15% de la hauteur écran */
+                margin-bottom: 50px;
+            }
+
+            /* --- RÉGLAGE MANUEL MODE 30 --- */
+            .mode-30 {
+                /* Agrandissement de 15% */
+                transform: scale(1.15);
+                /* IMPORTANT : On zoome depuis le haut pour ne pas que ça sorte de l'écran en haut */
+                transform-origin: top center;
+                
+                /* Marge pour descendre le panneau 30 étages */
+                margin-top: 5vh; /* Descend de 5% (moins que le 9 car il est plus grand) */
+                
+                /* Marge de sécurité en bas pour compenser le zoom */
+                margin-bottom: 150px; 
+            }
+
+            /* Ajustement de la grille pour le 30 étages agrandi */
+            .mode-30 .button-grid { gap: 4px; padding: 5px; }
+            /* On garde une taille de bouton lisible */
+            .mode-30 .floor-btn, .mode-30 .control-btn { width: 45px; height: 45px; font-size: 1.3rem; border-width: 2px; }
         }
 
     </style>
@@ -202,7 +214,7 @@
         
         const TIME_OPEN = 3200;      
         const TIME_WAIT = 2000;      
-        const TIME_CLOSE = 4500;     
+        const TIME_CLOSE = 4500;     // 4500ms
         const TIME_INTERRUPT = 1500; 
         const RATIO_OPEN_CLOSE = TIME_OPEN / TIME_CLOSE;
 
@@ -228,7 +240,7 @@
             setTimeout(() => {
                 sounds.music.currentTime = 0;
                 sounds.music.play().catch(e => {});
-            }, 1000); 
+            }, 1000); // 1000ms relance
         });
 
         function startBackgroundMusic() {
@@ -257,7 +269,7 @@
             sounds[key].currentTime = 0;
         }
 
-        // --- SON UP ---
+        // --- GESTION DU SON UP ---
         function playUpSound() {
             sounds.up.currentTime = 0;
             sounds.up.volume = 0; 
@@ -266,10 +278,11 @@
             let p = sounds.up.play();
             if (p !== undefined) {
                 p.then(() => {
+                    // Fondu ENTRÉE
                     let vol = 0;
                     let fadeIn = setInterval(() => {
                         if(vol < 1) {
-                            vol += 0.2; 
+                            vol += 0.2; // +20% Volume
                             sounds.up.volume = Math.min(1, vol);
                         } else {
                             clearInterval(fadeIn);
@@ -280,6 +293,7 @@
         }
 
         function stopUpSound() {
+            // Fondu SORTIE
             let vol = sounds.up.volume;
             let fadeOut = setInterval(() => {
                 if(vol > 0) {
@@ -385,7 +399,7 @@
             btn.className = 'control-btn door';
             btn.id = 'btn-door'; 
             
-            // Nouvelle icône SVG : Flèche Gauche + Barre + Flèche Droite
+            // Nouvelle icône
             btn.innerHTML = `
                 <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M8 19V5L2 12L8 19Z"/>
@@ -596,6 +610,3 @@
     </script>
 </body>
 </html>
-
-
-
