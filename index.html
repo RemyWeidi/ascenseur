@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ascenseur Universel V5 (Séquence Porte Ajustée)</title>
+    <title>Ascenseur Universel V16 (Son Mouvement)</title>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
 
     <style>
@@ -178,38 +178,117 @@
     <script>
         // --- CONFIGURATION ---
         let currentMode = 0; // 0 = 9 Etages, 1 = 30 Etages
-        const TRAVEL_TIME_PER_FLOOR_MS = 600; 
         
         // TEMPS DE LA PORTE
-        const DOOR_SOUND_DURATION_MS = 3200;
-        const DOOR_BUFFER_MS = 600; // Pour le bouton manuel (Total 3800ms)
+        const TIME_OPEN = 3200;      // Durée Open.mp3
+        const TIME_WAIT = 2000;      // Pause porte ouverte
+        const TIME_CLOSE = 3500;     // Durée Closing.mp3
+        const TIME_INTERRUPT = 1500; // Pause après interruption bouton
+
+        // Ratio : (Temps Ouverture / Temps Fermeture)
+        const RATIO_OPEN_CLOSE = TIME_OPEN / TIME_CLOSE;
 
         // --- ÉTATS ---
         const elevatorsState = [
-            { id: 0, floor: 0, dir: 0, reqs: new Set(), moving: false, doorBusy: false }, 
-            { id: 1, floor: 0, dir: 0, reqs: new Set(), moving: false, doorBusy: false }, 
+            { id: 0, floor: 0, dir: 0, reqs: new Set(), moving: false, phase: 'IDLE', interruptDoor: false }, 
+            { id: 1, floor: 0, dir: 0, reqs: new Set(), moving: false, phase: 'IDLE', interruptDoor: false }, 
         ];
 
         // --- AUDIO ---
         const sounds = {
             ding: new Audio('Ding.mp3'),
             alarm: new Audio('Alarm.mp3'),
-            door: new Audio('Open.mp3')
+            door_open: new Audio('Open.mp3'),
+            door_close: new Audio('Closing.mp3'),
+            music: new Audio('Music.mp3'),
+            up: new Audio('Up.mp3') // Nouveau son de mouvement
         };
 
+        // Configuration Musique de Fond
+        sounds.music.volume = 0.2; 
+        let musicStarted = false;
+
+        sounds.music.addEventListener('ended', () => {
+            setTimeout(() => {
+                sounds.music.currentTime = 0;
+                sounds.music.play().catch(e => {});
+            }, 2000); 
+        });
+
+        function startBackgroundMusic() {
+            if (!musicStarted) {
+                sounds.music.play().then(() => {
+                    musicStarted = true;
+                }).catch(e => {
+                    document.addEventListener('click', () => {
+                        if(!musicStarted) {
+                            sounds.music.play();
+                            musicStarted = true;
+                        }
+                    }, { once: true });
+                });
+            }
+        }
+
         // Fonctions Audio
-        function playSound(key) {
-            sounds[key].load();
-            sounds[key].currentTime = 0;
+        function playSound(key, startTimeMs = 0) {
+            sounds[key].currentTime = startTimeMs / 1000; 
             let p = sounds[key].play();
             if (p !== undefined) p.catch(e => {}); 
         }
 
+        function stopSound(key) {
+            sounds[key].pause();
+            sounds[key].currentTime = 0;
+        }
+
+        // --- GESTION DU SON UP (MOUVEMENT) ---
+        // Joue le son avec fondu
+        function playUpSound() {
+            sounds.up.currentTime = 0;
+            sounds.up.volume = 0; // Départ muet pour fondu
+            sounds.up.loop = true; // Boucle si le trajet est long
+            
+            let p = sounds.up.play();
+            if (p !== undefined) {
+                p.then(() => {
+                    // Fondu ENTRÉE (Fade In) sur 300ms
+                    let vol = 0;
+                    let fadeIn = setInterval(() => {
+                        if(vol < 1) {
+                            vol += 0.1;
+                            // Protection contre erreur flottante > 1
+                            sounds.up.volume = Math.min(1, vol);
+                        } else {
+                            clearInterval(fadeIn);
+                        }
+                    }, 30);
+                }).catch(e => {});
+            }
+        }
+
+        // Arrête le son avec fondu
+        function stopUpSound() {
+            // Fondu SORTIE (Fade Out) sur 300ms
+            let vol = sounds.up.volume;
+            let fadeOut = setInterval(() => {
+                if(vol > 0) {
+                    vol -= 0.1;
+                    sounds.up.volume = Math.max(0, vol);
+                } else {
+                    clearInterval(fadeOut);
+                    sounds.up.pause();
+                    sounds.up.currentTime = 0;
+                    sounds.up.loop = false;
+                }
+            }, 30);
+        }
+
+
+        // --- LOGIQUE ALARME ---
         let alarmTimeout;
         function playAlarm() {
             clearTimeout(alarmTimeout);
-            
-            // Allumage du bouton ALARME
             const btn = document.getElementById('btn-alarm');
             if(btn) btn.classList.add('lit');
 
@@ -222,7 +301,6 @@
             alarmTimeout = setTimeout(() => {
                 sounds.alarm.pause();
                 sounds.alarm.currentTime = 0;
-                // Extinction du bouton ALARME
                 if(btn) btn.classList.remove('lit');
             }, 3000);
         }
@@ -287,48 +365,38 @@
         function createAlarmBtn() {
             const btn = document.createElement('button');
             btn.className = 'control-btn alarm';
-            btn.id = 'btn-alarm'; // ID pour ciblage
+            btn.id = 'btn-alarm'; 
             btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>';
             btn.addEventListener('click', playAlarm);
             return btn;
         }
 
-        // BOUTON PORTE (MANUEL)
         function createDoorBtn() {
             const btn = document.createElement('button');
             btn.className = 'control-btn door';
             btn.id = 'btn-door'; 
             btn.innerHTML = '<svg class="icon" viewBox="0 0 24 24"><path d="M5 10l7-5v14l-7-5V10z m14 0l-7-5v14l7-5V10z M11 12h2"/><path d="M8 5v14l-5-5V10z M16 5v14l5-5V10z"/></svg>';
             
-            btn.addEventListener('click', async () => {
-                const state = elevatorsState[currentMode];
-                
-                // Si l'ascenseur bouge OU si la porte est déjà en cycle, on ignore
-                if(state.moving || state.doorBusy) return;
-
-                // Sinon on lance le cycle manuel
-                state.doorBusy = true;
-                btn.classList.add('lit');
-                
-                playSound('door'); // Son ouverture
-                
-                // Ici on garde les 3800ms demandés pour le manuel
-                await sleep(DOOR_SOUND_DURATION_MS); // 3200ms
-                await sleep(DOOR_BUFFER_MS);         // 600ms
-                
-                btn.classList.remove('lit');
-                state.doorBusy = false;
-
-                // S'il y avait des requêtes en attente, on repart
-                if(state.reqs.size > 0 && !state.moving) startElevatorLoop(state.id);
+            btn.addEventListener('click', () => {
+                const s = elevatorsState[currentMode];
+                if (s.phase !== 'OPENING') {
+                    btn.classList.add('lit');
+                    setTimeout(() => {
+                        if(s.phase !== 'OPENING') btn.classList.remove('lit');
+                    }, 300);
+                }
+                if (s.phase === 'IDLE' && !s.moving) {
+                    s.reqs.add(s.floor); 
+                    startElevatorLoop(s.id);
+                }
+                else if (s.phase === 'WAITING' || s.phase === 'CLOSING') {
+                    s.interruptDoor = true;
+                }
             });
             return btn;
         }
 
-        // --- LOGIQUE METIER ---
-        function updateDisplay(floor) {
-            displayScreen.innerText = floor === 0 ? "RDC" : floor;
-        }
+        function updateDisplay(floor) { displayScreen.innerText = floor === 0 ? "RDC" : floor; }
 
         function toggleFloor(floorNum) {
             const state = elevatorsState[currentMode];
@@ -338,7 +406,7 @@
                 state.reqs.delete(floorNum);
                 if(btn) btn.classList.remove('lit');
             } else {
-                if (floorNum === state.floor && !state.moving) return;
+                if (floorNum === state.floor && !state.moving && state.phase === 'IDLE') return;
                 state.reqs.add(floorNum);
                 if(btn) btn.classList.add('lit');
                 if (!state.moving) startElevatorLoop(state.id);
@@ -355,82 +423,182 @@
 
         function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+        async function waitWithInterrupt(s, duration) {
+            const step = 50;
+            let elapsed = 0;
+            while(elapsed < duration) {
+                if(s.interruptDoor) return false;
+                await sleep(step);
+                elapsed += step;
+            }
+            return true;
+        }
+
         async function startElevatorLoop(elevatorId) {
-            const state = elevatorsState[elevatorId];
+            const s = elevatorsState[elevatorId];
             
-            if (state.moving || state.doorBusy) return;
-            state.moving = true;
+            if (s.moving) return;
+            s.moving = true;
 
-            while (state.reqs.size > 0) {
-                // Logique Direction
-                if (state.dir === 0) {
-                    const hasAbove = Array.from(state.reqs).some(f => f > state.floor);
-                    state.dir = hasAbove ? 1 : -1;
+            // --- PLANIFICATION DU TRAJET ---
+            // On calcule ici si le trajet est assez long pour jouer le son Up.mp3
+            // Condition : TempsTotal > 1000ms (500ms délai départ + 500ms délai arrivée)
+            let isMovingSoundPlaying = false;
+            
+            while (s.reqs.size > 0) {
+                // 1. DIRECTION
+                if (s.dir === 0) {
+                    const hasAbove = Array.from(s.reqs).some(f => f > s.floor);
+                    s.dir = hasAbove ? 1 : -1;
                 }
-                if (state.dir === 1) {
-                    const above = Array.from(state.reqs).filter(f => f > state.floor);
+                if (s.dir === 1) {
+                    const above = Array.from(s.reqs).filter(f => f > s.floor);
                     if (above.length === 0) {
-                        const below = Array.from(state.reqs).filter(f => f < state.floor);
-                        state.dir = below.length > 0 ? -1 : 0;
+                        const below = Array.from(s.reqs).filter(f => f < s.floor);
+                        s.dir = below.length > 0 ? -1 : 0;
                     }
-                } else if (state.dir === -1) {
-                    const below = Array.from(state.reqs).filter(f => f < state.floor);
+                } else if (s.dir === -1) {
+                    const below = Array.from(s.reqs).filter(f => f < s.floor);
                     if (below.length === 0) {
-                        const above = Array.from(state.reqs).filter(f => f > state.floor);
-                        state.dir = above.length > 0 ? 1 : 0;
+                        const above = Array.from(s.reqs).filter(f => f > s.floor);
+                        s.dir = above.length > 0 ? 1 : 0;
                     }
                 }
 
-                if (state.dir === 0 && state.reqs.size === 0) break;
+                if (s.dir === 0 && s.reqs.size === 0) break;
 
-                // Mouvement
-                await sleep(TRAVEL_TIME_PER_FLOOR_MS);
-                if (state.dir === 1) state.floor++;
-                else state.floor--;
+                // --- GESTION DU SON UP (DÉPART) ---
+                // Si on démarre et qu'il n'y a pas d'arrêt prévu tout de suite
+                // Pour simplifier, on regarde si on va s'arrêter au prochain étage
+                const nextFloor = s.floor + s.dir;
+                const willStopNext = s.reqs.has(nextFloor);
+                const travelTime = (currentMode === 0) ? 1200 : 600;
 
-                if (currentMode === elevatorId) updateDisplay(state.floor);
+                // Si on ne joue pas déjà le son et qu'on a le temps
+                // (Si on s'arrête au prochain, temps total = travelTime)
+                // (Si travelTime > 1000, on peut jouer même pour 1 étage)
+                if (!isMovingSoundPlaying && currentMode === elevatorId) {
+                    // On lance le son après 500ms si le trajet le permet
+                    // Cas simple : On lance le son, et on l'arrêtera 500ms avant l'arrivée prévue
+                    if (travelTime > 500) { 
+                        // Petite attente de 500ms avant de lancer le son
+                        // Note : Cela se fait en parallèle du mouvement visuel pour ne pas bloquer
+                        // Mais ici dans une boucle séquentielle simple, on doit ruser un peu
+                        // Pour cette version, on lance le son immédiatement avec le fondu qui prendra un peu de temps
+                        // ou on utilise un setTimeout non bloquant
+                        setTimeout(() => {
+                            if(s.moving && !isMovingSoundPlaying && currentMode === elevatorId) {
+                                playUpSound();
+                                isMovingSoundPlaying = true;
+                            }
+                        }, 500);
+                    }
+                }
 
-                // Arrivée
-                if (state.reqs.has(state.floor)) {
-                    state.reqs.delete(state.floor);
+                // 2. MOUVEMENT
+                // Si on doit s'arrêter à cet étage, on coupe le son AVANT d'arriver
+                if (willStopNext && isMovingSoundPlaying) {
+                    // On doit couper 500ms avant la fin du travelTime
+                    const timeBeforeCut = Math.max(0, travelTime - 500);
+                    await sleep(timeBeforeCut);
+                    stopUpSound();
+                    isMovingSoundPlaying = false;
+                    await sleep(500); // Reste du temps
+                } else {
+                    // Sinon on attend tout le temps
+                    await sleep(travelTime);
+                }
+                
+                if (s.dir === 1) s.floor++;
+                else s.floor--;
+
+                if (currentMode === elevatorId) updateDisplay(s.floor);
+
+                // 3. ARRIVÉE
+                if (s.reqs.has(s.floor)) {
+                    // Sécurité : on coupe le son si jamais il tournait encore
+                    if(isMovingSoundPlaying) { stopUpSound(); isMovingSoundPlaying = false; }
+
+                    s.reqs.delete(s.floor);
                     
-                    // SÉQUENCE D'ARRIVÉE AUTOMATIQUE
                     if (currentMode === elevatorId) {
-                        // 1. Ding
                         playSound('ding');
-                        const btn = document.getElementById(`btn-${state.floor}`);
+                        const btn = document.getElementById(`btn-${s.floor}`);
                         if(btn) btn.classList.remove('lit');
                     }
 
-                    // 2. Pause 500ms
                     await sleep(500);
 
-                    // 3. Début Ouverture Porte
-                    state.doorBusy = true; // Bloque le redémarrage
+                    // OUVERTURE
+                    s.phase = 'OPENING';
                     if (currentMode === elevatorId) {
-                         playSound('door'); // Open.mp3
-                         // Allume le bouton porte
-                         const doorBtn = document.getElementById('btn-door');
-                         if(doorBtn) doorBtn.classList.add('lit');
+                        playSound('door_open'); 
+                        const dBtn = document.getElementById('btn-door');
+                        if(dBtn) dBtn.classList.add('lit');
                     }
-
-                    // 4. Attente durée du son (3200ms)
-                    await sleep(DOOR_SOUND_DURATION_MS);
                     
-                    // 5. Attente Buffer ÉTENDU pour le redémarrage (1100ms)
-                    // 3200 + 1100 = 4300ms Total
-                    await sleep(1100); 
+                    await sleep(TIME_OPEN);
 
-                    // 6. Fin de séquence
-                    state.doorBusy = false;
                     if (currentMode === elevatorId) {
-                         const doorBtn = document.getElementById('btn-door');
-                         if(doorBtn) doorBtn.classList.remove('lit');
+                        const dBtn = document.getElementById('btn-door');
+                        if(dBtn) dBtn.classList.remove('lit');
                     }
+
+                    // FERMETURE
+                    let doorCycleComplete = false;
+                    
+                    while(!doorCycleComplete) {
+                        s.phase = 'WAITING';
+                        s.interruptDoor = false; 
+
+                        let waitDone = await waitWithInterrupt(s, TIME_WAIT);
+                        
+                        if (!waitDone) {
+                            s.interruptDoor = false;
+                            await sleep(TIME_INTERRUPT);
+                            continue; 
+                        }
+
+                        s.phase = 'CLOSING';
+                        s.interruptDoor = false;
+                        if (currentMode === elevatorId) playSound('door_close');
+                        
+                        const startCloseTime = Date.now();
+                        let closeDone = await waitWithInterrupt(s, TIME_CLOSE);
+
+                        if (!closeDone) {
+                            if (currentMode === elevatorId) stopSound('door_close');
+                            const timeClosed = Date.now() - startCloseTime;
+                            const reopenTime = timeClosed * RATIO_OPEN_CLOSE;
+                            
+                            s.phase = 'OPENING';
+                            s.interruptDoor = false;
+
+                            if (currentMode === elevatorId) {
+                                const startOffsetMs = Math.max(0, TIME_OPEN - reopenTime);
+                                playSound('door_open', startOffsetMs);
+                                const dBtn = document.getElementById('btn-door');
+                                if(dBtn) dBtn.classList.add('lit');
+
+                                setTimeout(() => {
+                                    stopSound('door_open');
+                                    if(dBtn) dBtn.classList.remove('lit');
+                                }, reopenTime);
+                            }
+                            
+                            await sleep(reopenTime);
+                            continue; 
+                        }
+                        doorCycleComplete = true;
+                    }
+                    s.phase = 'IDLE';
                 }
             }
-            state.moving = false;
-            state.dir = 0;
+            // Fin de boucle
+            if(isMovingSoundPlaying) { stopUpSound(); isMovingSoundPlaying = false; }
+            s.moving = false;
+            s.dir = 0;
+            s.phase = 'IDLE';
         }
 
         screenSwitch.addEventListener('click', () => {
@@ -438,6 +606,7 @@
             renderInterface();
         });
 
+        startBackgroundMusic();
         renderInterface();
 
     </script>
