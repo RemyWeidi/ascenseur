@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ascenseur Universel V19</title>
+    <title>Ascenseur Universel V22</title>
     <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
 
     <style>
@@ -27,7 +27,7 @@
             height: 100vh;
             width: 100vw;
             margin: 0;
-            padding: 0; /* Suppression padding pour centrage pur */
+            padding: 0;
             font-family: 'VT323', monospace;
             image-rendering: pixelated;
             user-select: none;
@@ -49,8 +49,6 @@
             transition: all 0.3s ease;
             margin: auto; 
             width: fit-content; 
-            
-            /* Ajustement pour éviter le décentrage */
             max-height: 98vh; 
             overflow-y: auto; 
             overflow-x: hidden;
@@ -94,15 +92,35 @@
             color: var(--screen-lit);
             font-size: 2.5rem;
             width: 100%; height: 50px;
-            display: flex; justify-content: center; align-items: center;
+            
+            /* -- MODIFICATION : GRILLE POUR CENTRAGE PARFAIT -- */
+            display: grid; 
+            grid-template-columns: 1fr auto 1fr; /* 3 colonnes : Espace Gauche | Numéro (Auto) | Espace Droit */
+            align-items: center;    /* Centre verticalement dans la grille */
+            justify-items: center;  /* Centre horizontalement dans chaque colonne */
+            
             border: 2px inset rgba(255, 170, 0, 0.2);
             text-shadow: 0 0 5px var(--screen-lit);
             position: relative; overflow: hidden;
+            padding: 0 5px; 
+            box-sizing: border-box;
         }
         .display-screen::after {
             content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             background: repeating-linear-gradient(0deg, rgba(0,0,0,0.1) 0px, rgba(0,0,0,0.1) 2px, transparent 2px, transparent 4px);
             pointer-events: none;
+        }
+
+        /* Classe pour le numéro afin qu'il ne bouge pas */
+        .floor-number {
+            min-width: 30px;
+            text-align: center;
+        }
+
+        /* -- MODIFICATION : AJUSTEMENT VERTICAL FLÈCHES -- */
+        .arrow {
+            position: relative;
+            top: -2px; /* Remonte de ~1-2 pixels visuels pour centrer avec le chiffre */
         }
 
         /* --- BOUTONS --- */
@@ -121,6 +139,7 @@
             -webkit-tap-highlight-color: transparent;
             touch-action: manipulation;
             flex-shrink: 0;
+            user-select: none;
         }
         .floor-btn:active, .control-btn:active { transform: scale(0.95); box-shadow: inset 0 0 10px rgba(0,0,0,0.8); }
         .floor-btn.lit, .control-btn.lit {
@@ -158,28 +177,19 @@
 
         /* --- MOBILE RESPONSIVE --- */
         @media (max-height: 900px) {
-            
-            /* Mode 9 : Pas de changement de taille, juste centrage assuré par body */
-            
-            /* Mode 30 : Agrandissement de % */
             .mode-30 {
-                transform: scale(0.85); /* Agrandissement */
-                
-                /* Marges pour compenser le scale et centrer */
+                transform: scale(0.85); 
                 margin-top: 5vh; 
                 margin-bottom: 5vh;
             }
-            
-            /* Ajustement boutons pour mobile si nécessaire */
             .mode-30 .floor-btn, .mode-30 .control-btn { 
                 width: 48px; height: 48px; font-size: 1.4rem; 
             }
         }
 
-        /* Très petits écrans : On réduit un peu pour que ça rentre quand même */
         @media (max-height: 700px) {
             .mode-30 {
-                transform: scale(0.95); /* Légère réduction si l'écran est vraiment petit */
+                transform: scale(0.95); 
                 margin-top: 0;
                 margin-bottom: 0;
             }
@@ -191,7 +201,11 @@
 
     <div class="elevator-panel mode-9" id="main-panel">
         <div class="display-screen-container" id="screen-switch" title="Changer de mode">
-            <div class="display-screen" id="floor-display">RDC</div>
+            <div class="display-screen" id="floor-display">
+                <span class="arrow">&nbsp;</span>
+                <span class="floor-number">0</span>
+                <span class="arrow">&nbsp;</span>
+            </div>
         </div>
         <div id="dynamic-content"></div>
     </div>
@@ -205,6 +219,7 @@
         const TIME_CLOSE = 4500;     
         const TIME_INTERRUPT = 1500; 
         const RATIO_OPEN_CLOSE = TIME_OPEN / TIME_CLOSE;
+        const TIME_CANCEL_PRESS = 1500; 
 
         const elevatorsState = [
             { id: 0, floor: 0, dir: 0, reqs: new Set(), moving: false, phase: 'IDLE', interruptDoor: false }, 
@@ -257,7 +272,6 @@
             sounds[key].currentTime = 0;
         }
 
-        // --- SON UP ---
         function playUpSound() {
             sounds.up.currentTime = 0;
             sounds.up.volume = 0; 
@@ -350,7 +364,7 @@
             }
             
             const currentState = elevatorsState[currentMode];
-            updateDisplay(currentState.floor);
+            updateDisplay(currentState.floor, false); 
             updateLights();
         }
 
@@ -359,7 +373,52 @@
             btn.className = 'floor-btn';
             btn.innerText = num;
             btn.id = `btn-${num}`;
-            btn.onclick = () => toggleFloor(num);
+            
+            let pressTimer = null;
+            let isLongPress = false;
+
+            const startPress = (e) => {
+                if (e.type === 'touchstart') {
+                    btn.removeEventListener('mousedown', startPress);
+                }
+                e.preventDefault(); 
+                
+                const state = elevatorsState[currentMode];
+                isLongPress = false;
+
+                if (state.reqs.has(num)) {
+                    pressTimer = setTimeout(() => {
+                        isLongPress = true;
+                        state.reqs.delete(num);
+                        btn.classList.remove('lit');
+                    }, TIME_CANCEL_PRESS);
+                } 
+                else {
+                    if (!(num === state.floor && !state.moving && state.phase === 'IDLE')) {
+                        state.reqs.add(num);
+                        btn.classList.add('lit');
+                        if (!state.moving) startElevatorLoop(state.id);
+                    }
+                }
+            };
+
+            const endPress = (e) => {
+                if (pressTimer) {
+                    clearTimeout(pressTimer);
+                    pressTimer = null;
+                }
+                if (e.type === 'touchend') {
+                    setTimeout(() => btn.addEventListener('mousedown', startPress), 500);
+                }
+            };
+
+            btn.addEventListener('mousedown', startPress);
+            btn.addEventListener('touchstart', startPress);
+            
+            btn.addEventListener('mouseup', endPress);
+            btn.addEventListener('mouseleave', endPress);
+            btn.addEventListener('touchend', endPress);
+
             return btn;
         }
 
@@ -384,8 +443,6 @@
             const btn = document.createElement('button');
             btn.className = 'control-btn door';
             btn.id = 'btn-door'; 
-            
-            // Nouvelle icône SVG : Flèche Gauche + Barre + Flèche Droite
             btn.innerHTML = `
                 <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M8 19V5L2 12L8 19Z"/>
@@ -393,7 +450,6 @@
                     <path d="M16 5V19L22 12L16 5Z"/>
                 </svg>
             `;
-            
             btn.addEventListener('click', () => {
                 const s = elevatorsState[currentMode];
                 if (s.phase !== 'OPENING') {
@@ -413,20 +469,24 @@
             return btn;
         }
 
-        function updateDisplay(floor) { displayScreen.innerText = floor === 0 ? "RDC" : floor; }
+        // --- NOUVELLE LOGIQUE D'AFFICHAGE AVEC CENTRAGE ---
+        function updateDisplay(floor, showArrows) { 
+            const s = elevatorsState[currentMode];
+            
+            let leftArrow = "&nbsp;";
+            let rightArrow = "&nbsp;";
 
-        function toggleFloor(floorNum) {
-            const state = elevatorsState[currentMode];
-            const btn = document.getElementById(`btn-${floorNum}`);
-            if (state.reqs.has(floorNum)) {
-                state.reqs.delete(floorNum);
-                if(btn) btn.classList.remove('lit');
-            } else {
-                if (floorNum === state.floor && !state.moving && state.phase === 'IDLE') return;
-                state.reqs.add(floorNum);
-                if(btn) btn.classList.add('lit');
-                if (!state.moving) startElevatorLoop(state.id);
+            if (showArrows) {
+                if (s.dir === -1) leftArrow = "▼"; 
+                if (s.dir === 1) rightArrow = "▲"; 
             }
+            
+            // On utilise les classes pour le positionnement précis
+            displayScreen.innerHTML = `
+                <span class="arrow">${leftArrow}</span>
+                <span class="floor-number">${floor}</span>
+                <span class="arrow">${rightArrow}</span>
+            `;
         }
 
         function updateLights() {
@@ -478,6 +538,9 @@
 
                 if (s.dir === 0 && s.reqs.size === 0) break;
 
+                // Affichage initial du mouvement
+                if (currentMode === elevatorId) updateDisplay(s.floor, true);
+
                 const nextFloor = s.floor + s.dir;
                 const willStopNext = s.reqs.has(nextFloor);
                 const travelTime = (currentMode === 0) ? 1200 : 1000;
@@ -506,7 +569,7 @@
                 if (s.dir === 1) s.floor++;
                 else s.floor--;
 
-                if (currentMode === elevatorId) updateDisplay(s.floor);
+                if (currentMode === elevatorId) updateDisplay(s.floor, true);
 
                 if (s.reqs.has(s.floor)) {
                     if(isMovingSoundPlaying) { stopUpSound(); isMovingSoundPlaying = false; }
@@ -519,6 +582,8 @@
                     }
 
                     await sleep(500);
+
+                    if (currentMode === elevatorId) updateDisplay(s.floor, false);
 
                     s.phase = 'OPENING';
                     if (currentMode === elevatorId) {
@@ -557,6 +622,8 @@
                             const timeClosed = Date.now() - startCloseTime;
                             const reopenTime = timeClosed * RATIO_OPEN_CLOSE;
                             
+                            if (currentMode === elevatorId) updateDisplay(s.floor, false);
+
                             s.phase = 'OPENING';
                             s.interruptDoor = false;
 
@@ -583,6 +650,7 @@
             s.moving = false;
             s.dir = 0;
             s.phase = 'IDLE';
+            if (currentMode === elevatorId) updateDisplay(s.floor, false); 
         }
 
         screenSwitch.addEventListener('click', () => {
